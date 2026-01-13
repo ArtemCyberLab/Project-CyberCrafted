@@ -98,6 +98,41 @@ invalid RSA structure
 7️⃣ Cracking Preparation (Failed)
 python3 /opt/john/ssh2john.py id_rsa > id_rsa.hash
 
+8) 🔍 SSH Key Discovery
+
+During the post-exploitation phase, an encrypted RSA private key (id_rsa) was discovered.
+
+Key format:
+
+-----BEGIN RSA PRIVATE KEY-----
+Proc-Type: 4,ENCRYPTED
+DEK-Info: AES-128-CBC
+...
+
+🔓 Cracking the SSH Key Passphrase
+
+The private key was processed using ssh2john, and then cracked with John the Ripper.
+
+john --wordlist=/usr/share/wordlists/rockyou.txt id_rsa.hash
+
+
+📌 Result:
+
+SSH key passphrase:
+
+creepin2006
+
+🔐 SSH Access Attempt
+
+An SSH connection attempt was made using the cracked private key:
+
+ssh -i id_rsa xxultimatecreeperxx@cybercrafted.thm
+
+
+The key correctly prompts for a passphrase ✔
+
+A libcrypto error was encountered, which is not related to the passphrase, but rather to an incorrect or corrupted private key format
+
 
 Error:
 
