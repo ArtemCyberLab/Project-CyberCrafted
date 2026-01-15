@@ -140,3 +140,20 @@ base64 decoding error: Incorrect padding
 
 
 Reason: corrupted private key
+
+🧪 Investigation Status
+
+During post-exploitation, an encrypted RSA private SSH key belonging to the user xXUltimateCreeperXx was successfully discovered and extracted.
+The passphrase for the key was cracked using ssh2john and John the Ripper (creepin2006).
+
+However, during SSH authentication attempts, the private key triggers libcrypto / invalid format errors, indicating that the key file is likely corrupted during manual exfiltration (base64/padding/format issue).
+
+At this stage, the focus is on:
+
+Re-extracting the SSH private key in a safe, non-destructive way
+
+Verifying key integrity
+
+Restoring a valid SSH login using the already recovered credentials
+
+Further investigation is ongoing to ensure proper key handling and successful SSH access.
