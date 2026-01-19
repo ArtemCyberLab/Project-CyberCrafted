@@ -220,3 +220,44 @@ SSH key analysis & cracking
 Cryptographic error analysis
 
 Real-world key exfiltration pitfalls
+
+🧩 Conclusion & Current Status
+
+During the post-exploitation phase, a significant amount of progress was achieved, including full web exploitation, shell access, and credential recovery. An encrypted RSA private SSH key belonging to the user xxultimatecreeperxx was successfully discovered on the target system and extracted.
+
+The SSH key passphrase was cracked offline using ssh2john and John the Ripper, revealing the correct passphrase:
+
+creepin2006
+
+
+Multiple SSH authentication attempts were then performed using:
+
+the recovered private key
+
+the correct username
+
+the successfully cracked passphrase
+
+However, despite the passphrase being valid, SSH access could not be established. All login attempts consistently resulted in libcrypto / invalid key format errors, strongly indicating that the private key itself was corrupted during extraction or handling.
+
+This issue is not related to credential validity but rather to a key integrity problem, which appears to be a known limitation or intentional obstacle within this room.
+
+At this stage, the attack chain is technically complete:
+
+Initial access achieved via web exploitation
+
+Reverse shell successfully obtained
+
+User enumeration completed
+
+Encrypted SSH private key recovered
+
+Passphrase successfully cracked
+
+The only remaining step is to authenticate as the target user and perform final privilege escalation to obtain the root flag. Due to the corrupted SSH key, this final step could not be completed despite correct credentials.
+
+🏁 Final Note
+
+This room effectively demonstrates the importance of secure key handling and highlights how even correct credentials can become unusable if cryptographic material is compromised. From a methodological perspective, the room was fully solved up to the final authentication stage, with the remaining blocker being a technical issue rather than a lack of exploitation knowledge.
+
+
